@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa Estilo Uber</title>
+  <title>Mapa Estilo Uber com Animação</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
@@ -10,12 +10,22 @@
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
 
-    .custom-marker {
-      background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/e0/Black_car_icon.png'); /* Ícone de carro */
-      background-size: cover;
-      width: 30px;
-      height: 30px;
+    .marker-origem {
+      background-color: black;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
+      border: 3px solid white;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    }
+
+    .marker-destino {
+      background-color: white;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 3px solid black;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
     }
 
     .duration-label {
@@ -36,39 +46,38 @@
 </head>
 <body>
   <div id="map"></div>
-  <div class="duration-label">6 MIN</div> <!-- Caixa de tempo estimado -->
+  <div class="duration-label">6 MIN</div>
 
   <script>
     mapboxgl.accessToken = 'pk.eyJ1IjoidmVsbG9kcml2ZXIiLCJhIjoiY21iMGc2azhiMHcyNDJrcTJrN3F3dnp1bSJ9.A6iU7GA4IixnaTbhJPe9hQ';
 
-    const origem = [-48.490179, -1.455754]; // Shopping Pátio Belém (aproximado)
-    const destino = [-48.426472, -1.383648]; // Shopping Castanheira (aproximado)
+    const origem = [-48.490179, -1.455754];
+    const destino = [-48.426472, -1.383648];
 
     const map = new mapboxgl.Map({
       container: 'map',
-      style: 'mapbox://styles/mapbox/light-v1',
+      style: 'mapbox://styles/vellodriver/cmd41p3hf003s01s279kzdxhv',
       center: origem,
       zoom: 12
     });
 
     map.on('load', async () => {
-      // Marcadores personalizados
-      const createMarker = (coords) => {
+      const createMarker = (coords, className) => {
         const el = document.createElement('div');
-        el.className = 'custom-marker';
+        el.className = className;
         new mapboxgl.Marker(el).setLngLat(coords).addTo(map);
       };
-      createMarker(origem);
-      createMarker(destino);
 
-      // Ajustar visualização da rota
+      createMarker(origem, 'marker-origem');
+      createMarker(destino, 'marker-destino');
+
       const bounds = new mapboxgl.LngLatBounds();
       bounds.extend(origem).extend(destino);
       map.fitBounds(bounds, {
         padding: { top: 100, bottom: 100, left: 50, right: 50 }
       });
 
-      // Rota entre os pontos
+      // Busca rota
       const query = await fetch(
         `https://api.mapbox.com/directions/v5/mapbox/driving/${origem.join(',')};${destino.join(',')}?geometries=geojson&access_token=${mapboxgl.accessToken}`
       );
@@ -83,16 +92,40 @@
         }
       });
 
+      // Camada de fundo: linha cinza
       map.addLayer({
-        id: 'route',
+        id: 'route-background',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#D3D3D3',
+          'line-width': 6
+        }
+      });
+
+      // Camada animada: linha preta com efeito Uber
+      map.addLayer({
+        id: 'route-animated',
         type: 'line',
         source: 'route',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: {
           'line-color': '#000000',
-          'line-width': 6
+          'line-width': 6,
+          'line-dasharray': [2, 4]
         }
       });
+
+      // Animação da dash
+      let dashOffset = 0;
+      function animateDash() {
+        dashOffset = (dashOffset + 1) % 100;
+        const dashArray = [2, 4, dashOffset / 25 + 1];
+        map.setPaintProperty('route-animated', 'line-dasharray', dashArray);
+        requestAnimationFrame(animateDash);
+      }
+      animateDash();
     });
   </script>
 </body>
