@@ -1,66 +1,99 @@
-<script>
-  mapboxgl.accessToken = 'pk.eyJ1IjoidmVsbG9kcml2ZXIiLCJhIjoiY21iMGc2azhiMHcyNDJrcTJrN3F3dnp1bSJ9.A6iU7GA4IixnaTbhJPe9hQ';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa Estilo Uber</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
 
-  const params = new URLSearchParams(window.location.search);
-  const origem = params.get("origem")?.split(',').map(Number) || [-43.2096, -22.9035];
-  const destino = params.get("destino")?.split(',').map(Number) || [-46.6333, -23.5505];
+    .custom-marker {
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/e0/Black_car_icon.png'); /* Ícone de carro */
+      background-size: cover;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+    }
 
-  const map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/navigation-day-v1', // ← estilo bicolor claro
-    center: origem,
-    zoom: 5
-  });
+    .duration-label {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: black;
+      color: white;
+      padding: 8px 12px;
+      font-weight: bold;
+      border-radius: 8px;
+      font-family: sans-serif;
+      font-size: 14px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="duration-label">6 MIN</div> <!-- Caixa de tempo estimado -->
 
-  map.on('load', () => {
-    const createMarker = (coords) => {
-      const el = document.createElement('div');
-      el.className = 'custom-marker';
-      new mapboxgl.Marker(el).setLngLat(coords).addTo(map);
-    };
-    createMarker(origem);
-    createMarker(destino);
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoidmVsbG9kcml2ZXIiLCJhIjoiY21iMGc2azhiMHcyNDJrcTJrN3F3dnp1bSJ9.A6iU7GA4IixnaTbhJPe9hQ';
 
-    const bounds = new mapboxgl.LngLatBounds();
-    bounds.extend(origem);
-    bounds.extend(destino);
-    map.fitBounds(bounds, {
-      padding: {
-        top: 80,
-        bottom: 550,
-        left: 80,
-        right: 80
-      }
+    const origem = [-48.490179, -1.455754]; // Shopping Pátio Belém (aproximado)
+    const destino = [-48.426472, -1.383648]; // Shopping Castanheira (aproximado)
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: origem,
+      zoom: 12
     });
 
-    getRoute();
-  });
+    map.on('load', async () => {
+      // Marcadores personalizados
+      const createMarker = (coords) => {
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        new mapboxgl.Marker(el).setLngLat(coords).addTo(map);
+      };
+      createMarker(origem);
+      createMarker(destino);
 
-  async function getRoute() {
-    const query = await fetch(
-      `https://api.mapbox.com/directions/v5/mapbox/driving/${origem.join(',')};${destino.join(',')}?geometries=geojson&access_token=${mapboxgl.accessToken}`
-    );
-    const json = await query.json();
-    const data = json.routes[0].geometry;
+      // Ajustar visualização da rota
+      const bounds = new mapboxgl.LngLatBounds();
+      bounds.extend(origem).extend(destino);
+      map.fitBounds(bounds, {
+        padding: { top: 100, bottom: 100, left: 50, right: 50 }
+      });
 
-    map.addSource('route', {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        properties: {},
-        geometry: data
-      }
+      // Rota entre os pontos
+      const query = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${origem.join(',')};${destino.join(',')}?geometries=geojson&access_token=${mapboxgl.accessToken}`
+      );
+      const json = await query.json();
+      const data = json.routes[0].geometry;
+
+      map.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: data
+        }
+      });
+
+      map.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#000000',
+          'line-width': 6
+        }
+      });
     });
-
-    map.addLayer({
-      id: 'route',
-      type: 'line',
-      source: 'route',
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: {
-        'line-color': '#0A3D62',
-        'line-width': 4
-      }
-    });
-  }
-</script>
+  </script>
+</body>
+</html>
