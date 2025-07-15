@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Mapa Estilo Uber com Animação</title>
+  <title>Mapa Estilo Uber com Fade Suave</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
@@ -10,22 +10,21 @@
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
 
-    .marker-origem {
-      background-color: black;
-      width: 10px;
-      height: 10px;
+    .marker-origem, .marker-destino {
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       border: 3px solid white;
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    }
+
+    .marker-origem {
+      background-color: black;
     }
 
     .marker-destino {
       background-color: white;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
       border: 3px solid black;
-      box-shadow: 0 0 5px rgba(0,0,0,0.5);
     }
 
     .duration-label {
@@ -77,55 +76,74 @@
         padding: { top: 100, bottom: 100, left: 50, right: 50 }
       });
 
-      // Busca rota
+      // Consulta a rota
       const query = await fetch(
         `https://api.mapbox.com/directions/v5/mapbox/driving/${origem.join(',')};${destino.join(',')}?geometries=geojson&access_token=${mapboxgl.accessToken}`
       );
       const json = await query.json();
-      const data = json.routes[0].geometry;
+      const route = json.routes[0].geometry;
 
+      // Rota como source
       map.addSource('route', {
         type: 'geojson',
         data: {
           type: 'Feature',
-          geometry: data
+          geometry: route
         }
       });
 
-      // Camada de fundo: linha cinza
+      // Camada de fundo cinza
       map.addLayer({
-        id: 'route-background',
+        id: 'route-bg',
         type: 'line',
         source: 'route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#D3D3D3',
+          'line-color': '#d3d3d3',
           'line-width': 6
         }
       });
 
-      // Camada animada: linha preta com efeito Uber
+      // Camada animada com line-gradient
       map.addLayer({
         id: 'route-animated',
         type: 'line',
         source: 'route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#000000',
           'line-width': 6,
-          'line-dasharray': [2, 4]
+          'line-gradient': [
+            'interpolate',
+            ['linear'],
+            ['line-progress'],
+            0, 'rgba(0,0,0,0)',
+            0.1, 'rgba(0,0,0,0.4)',
+            0.3, 'rgba(0,0,0,1)',
+            0.5, 'rgba(0,0,0,1)',
+            0.7, 'rgba(0,0,0,1)',
+            1, 'rgba(0,0,0,0)'
+          ]
         }
       });
 
-      // Animação da dash
-      let dashOffset = 0;
-      function animateDash() {
-        dashOffset = (dashOffset + 1) % 100;
-        const dashArray = [2, 4, dashOffset / 25 + 1];
-        map.setPaintProperty('route-animated', 'line-dasharray', dashArray);
-        requestAnimationFrame(animateDash);
+      // Animação deslizando o gradiente
+      let progress = 0;
+      function animate() {
+        progress += 0.002;
+        if (progress > 1) progress = 0;
+
+        map.setPaintProperty('route-animated', 'line-gradient', [
+          'interpolate',
+          ['linear'],
+          ['line-progress'],
+          Math.max(progress - 0.2, 0), 'rgba(0,0,0,0)',
+          progress, 'rgba(0,0,0,1)',
+          Math.min(progress + 0.2, 1), 'rgba(0,0,0,0)'
+        ]);
+
+        requestAnimationFrame(animate);
       }
-      animateDash();
+      animate();
     });
   </script>
 </body>
