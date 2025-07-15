@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Rota Mapbox</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .custom-marker {
+      width: 12px;
+      height: 12px;
+      background-color: #0A3D62;
+      border-radius: 50%;
+      border: 2px solid white;
+    }
+  </style>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoidmVsbG9kcml2ZXIiLCJhIjoiY21iMGc2azhiMHcyNDJrcTJrN3F3dnp1bSJ9.A6iU7GA4IixnaTbhJPe9hQ';
+
+    const params = new URLSearchParams(window.location.search);
+    const origem = params.get("origem")?.split(',').map(Number) || [-43.2096, -22.9035];
+    const destino = params.get("destino")?.split(',').map(Number) || [-46.6333, -23.5505];
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/light-v10', // estilo base claro (ruas brancas e elementos em cinza)
+      center: origem,
+      zoom: 5
+    });
+
+    map.on('load', () => {
+      // Marcadores personalizados
+      const createMarker = (coords) => {
+        const el = document.createElement('div');
+        el.className = 'custom-marker';
+        new mapboxgl.Marker(el).setLngLat(coords).addTo(map);
+      };
+      createMarker(origem);
+      createMarker(destino);
+
+      // Ajuste do zoom com padding
+      const bounds = new mapboxgl.LngLatBounds();
+      bounds.extend(origem);
+      bounds.extend(destino);
+      map.fitBounds(bounds, {
+        padding: {
+          top: 80,
+          bottom: 550,
+          left: 80,
+          right: 80
+        }
+      });
+
+      // Rota
+      getRoute();
+    });
+
+    async function getRoute() {
+      const query = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${origem.join(',')};${destino.join(',')}?geometries=geojson&access_token=${mapboxgl.accessToken}`
+      );
+      const json = await query.json();
+      const data = json.routes[0].geometry;
+
+      map.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: data
+        }
+      });
+
+      map.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#0A3D62',
+          'line-width': 3
+        }
+      });
+    }
+  </script>
+</body>
+</html>
